@@ -84,7 +84,7 @@ def bar_plot(values, labels, ylabel, title, out_path):
 def main():
     parser = argparse.ArgumentParser(description="Run HW5 benchmarks and emit summary + figures.")
     parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[1])
-    parser.add_argument("--python", type=str, default=str(Path(__file__).resolve().parents[1] / ".venv/bin/python"))
+    parser.add_argument("--python", type=str, default=sys.executable)
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--warmup-epochs", type=int, default=1)
     parser.add_argument("--pipeline-batch-size", type=int, default=96)
