@@ -1,0 +1,2 @@
+# Separate optional SGLang environment; not mixed into the core Torch/DeepSpeed env.
+sglang[all]==0.4.6.post5
