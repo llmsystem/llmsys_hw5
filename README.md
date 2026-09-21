@@ -29,9 +29,8 @@ python grade.py --device cpu
 CPU-only machines may omit DeepSpeed by installing the other pinned packages
 from `requirements-merged.txt`. CUDA is needed only for the GPU grading commands.
 Use FP32 or FP16 on V100; this assignment deliberately excludes BF16.
-Keep DeepSpeed pinned to **0.16.9**: the grader checks this version before
-awarding its GPU points. The accumulation reference test exposed a regression
-in the initially tested newer versions; see `docs/VALIDATION.md`.
+Use the pinned DeepSpeed version **0.16.9**; other versions are not supported
+by this assignment’s grader.
 For an identical Linux grading environment, install
 `docs/environments/core-lock.txt` instead of `requirements.txt`. The environment
 snapshots include Linux CUDA dependencies and are not intended for macOS.
@@ -156,13 +155,8 @@ before and after each measured pass. Count actual generated token IDs, excluding
 warmup, and divide by total measured seconds. Always shut down its owned engine,
 including on exceptions. No minimum tokens/second is graded.
 
-The default real-inference fixture uses the supplied local Hugging Face/PyTorch
-engine. SGLang is experimental and currently fails dependency loading in the tested
-environment; it is not required for full credit. It has a separate dependency
-profile (`requirements-serving.txt`) and
-an explicit `--engine sglang --serving-python /path/to/serving-env/bin/python`
-option. There is no silent backend fallback. See `docs/VALIDATION.md` for the
-hardware/backend configurations actually verified for this release.
+The real-inference tests use the supplied local Hugging Face/PyTorch engine.
+Use the default engine for this assignment; you do not need to install SGLang.
 
 ## Bridges-2
 
@@ -195,7 +189,7 @@ exit
 See the [PSC interactive-session instructions](https://www.psc.edu/resources/bridges-2/user-guide/#interactive-sessions).
 Always exit the interactive shell when finished so the GPUs are released.
 
-## Reading results and instructor use
+## Reading your results
 
 `artifacts/grade.json` contains points, status, runtime, failure reason, logs,
 source hashes, package version, and GPU names. `blocked` means the required
@@ -205,19 +199,3 @@ a completed full grade**. CPU preview can establish up to 87/100. Exit codes:
 because one or more criteria were blocked. Results are written after each criterion.
 Use the listed log to see the assertion or traceback. An untouched starter should
 fail its implementation criteria; this is expected.
-
-For official grading, use a fresh instructor-controlled checkout and environment:
-
-```bash
-python grade.py --submission /path/to/extracted/submission --device cuda \
-  --output /path/to/results/student-id.json
-```
-
-The grader copies only the four editable student files into a disposable copy of
-its own harness. It runs criteria in fresh process groups with timeouts and cleans
-up children. Each result records the exact source hashes. Extract submitted ZIPs
-into separate directories and reject missing/ambiguous layouts before running.
-Do not accept a student-edited grader or uploaded score JSON as authoritative.
-This test runner is not a security sandbox: use the course's isolated grading
-account/container for untrusted code. Infrastructure errors in a supplied engine
-or cluster job require review/retry, not an automatic student penalty.
