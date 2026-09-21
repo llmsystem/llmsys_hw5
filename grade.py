@@ -172,7 +172,15 @@ def main():
             needs_cuda = kind == "zero" or (
                 accelerator == "cuda"
                 and key
-                in ("gradients", "updates", "forward", "backward", "real_inference")
+                in (
+                    "gradients",
+                    "updates",
+                    "forward",
+                    "backward",
+                    "lora",
+                    "adapter",
+                    "real_inference",
+                )
             )
             if needs_cuda and (accelerator != "cuda" or count < 2):
                 reason = "Needs a two-GPU allocation; CPU preview cannot establish this criterion."

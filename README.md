@@ -29,6 +29,9 @@ python grade.py --device cpu
 CPU-only machines may omit DeepSpeed by installing the other pinned packages
 from `requirements-merged.txt`. CUDA is needed only for the GPU grading commands.
 Use FP32 or FP16 on V100; this assignment deliberately excludes BF16.
+For an identical Linux grading environment, install
+`docs/environments/core-lock.txt` instead of `requirements.txt`. The environment
+snapshots include Linux CUDA dependencies and are not intended for macOS.
 
 Implement the `BEGIN_STUDENT` / `END_STUDENT` regions in these four files:
 
@@ -109,8 +112,8 @@ devices, and concatenates outputs in the original order on the last device.
 Use the supplied worker API: **submit every operation in a wave before receiving
 its results**. Preserve autograd across device transfers. Support a smaller final
 microbatch, split sizes larger than the batch, repeated calls, and `no_grad()`.
-Input batches are nonempty. The constructor already registers and places modules;
-worker management and exception propagation are supplied. The numerical fixtures
+Input batches are nonempty. The harness places stages on their devices, and the
+constructor registers them. Worker management and exception propagation are supplied. The numerical fixtures
 use deterministic batch-independent layers (no training-mode BatchNorm/dropout).
 
 ### C. ZeRO and LoRA (25)
