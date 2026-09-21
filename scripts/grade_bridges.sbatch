@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=hw56-grade
 #SBATCH --partition=GPU-shared
-#SBATCH --gres=gpu:v100-32:2
+#SBATCH --gres=gpu:v100-16:2
 #SBATCH --cpus-per-task=5
 #SBATCH --mem=32G
 #SBATCH --time=00:20:00

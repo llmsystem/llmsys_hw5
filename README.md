@@ -3,8 +3,9 @@
 Implement four small systems components: data parallel training, pipeline
 parallelism, DeepSpeed ZeRO with LoRA, and batched inference. **100 points.**
 The components are separate experiments; you do not need to combine DP, PP,
-and ZeRO into a single runtime. No full training epoch, accuracy threshold,
-handmade figure, or speedup threshold is required.
+and ZeRO into a single runtime. Parts A and B include short, automatically
+measured training-speedup benchmarks. Parts C and D are graded for correctness
+only. No full training epoch, accuracy threshold, or submitted figure is required.
 
 The active assignment is in `assignment/`. The old `data_parallel/`, `pipeline/`,
 `project/`, and benchmark scripts are historical HW5 material and are not graded.
@@ -14,7 +15,8 @@ The previous handout is preserved in `legacy/HW5_README.md`.
 
 Use Python 3.11 on Linux for the complete grading environment. The full grader
 uses **two V100 GPUs on one node**; CPU preview works on Linux/macOS and runs
-all criteria except the 13 points requiring a real DeepSpeed ZeRO engine.
+the correctness checks worth 67 points. The remaining 33 points require two
+GPUs: 20 for A/B performance and 13 for the real DeepSpeed ZeRO engine.
 The tiny model and tokenizer are generated locally: no Hugging Face account,
 model downloads, dataset download, or previous homework solution is needed.
 
@@ -64,11 +66,13 @@ checkpoint, screenshots, logs, or the entire repository.
 | Part | Criterion | Points |
 |---|---|---:|
 | A: data parallelism | Complete balanced seeded partition | 5 |
-| | Live averaged gradients matching a serial global batch | 10 |
-| | Three correct optimizer updates | 10 |
-| B: pipeline parallelism | Complete diagonal microbatch schedule | 10 |
-| | Concurrent wave dispatch, outputs, ordering, device, worker errors | 10 |
+| | Live averaged gradients matching a serial global batch | 5 |
+| | Three correct optimizer updates | 5 |
+| | Two-GPU training speedup | 10 |
+| B: pipeline parallelism | Complete diagonal microbatch schedule | 5 |
+| | Concurrent wave dispatch, outputs, ordering, device, worker errors | 5 |
 | | Input/parameter gradients and three optimizer updates | 10 |
+| | Pipelined training speedup | 10 |
 | C: ZeRO + LoRA | Static batch/precision config; live ZeRO-2 engine | 2 + 3 |
 | | Target selection, frozen base, device/dtype preservation | 5 |
 | | Three real accumulated ZeRO optimizer updates | 10 |
@@ -83,6 +87,9 @@ components with supplied fixtures where possible: an incorrect schedule does not
 automatically erase forward/backward credit; broken LoRA targeting does not erase
 configuration or training-step credit. A broken pipeline forward naturally also
 prevents its backward criterion. Real inference uses your batching function.
+Performance credit requires passing all correctness criteria within the same
+part, plus the benchmark’s numerical and speedup checks. A performance failure
+does not remove correctness points or affect C/D.
 
 ### A. Data parallelism (25)
 
@@ -117,6 +124,47 @@ microbatch, split sizes larger than the batch, repeated calls, and `no_grad()`.
 Input batches are nonempty. The harness places stages on their devices, and the
 constructor registers them. Worker management and exception propagation are supplied. The numerical fixtures
 use deterministic batch-independent layers (no training-mode BatchNorm/dropout).
+
+### A/B performance grading (10 points in each part)
+
+Run the same student grader inside a **two-V100 allocation**:
+
+```bash
+python grade.py --device cuda --section dp
+python grade.py --device cuda --section pipeline
+```
+
+The grader runs your implementation against a supplied baseline. It generates
+inputs and models locally; you do not need a dataset, model download, plots,
+or a separate performance submission. Keep the supplied benchmark unchanged.
+
+- **A:** at least **1.50×** training speedup over a single V100 processing the
+  same global batch. Two ranks each process half the rows and average gradients.
+- **B:** at least **1.10×** training speedup over ordinary, non-pipelined model
+  parallelism on the same two V100s. Both variants use the same layer placement
+  and global batch; the baseline sends the full batch through the stages.
+
+Both workloads use an FP32 residual MLP: eight width-2048 linear/GELU blocks,
+8,192 input rows per global batch, and SGD. B uses four blocks per GPU and eight
+microbatches of 1,024 rows. This larger workload complements the small correctness
+fixtures and makes useful computation dominate scheduling overhead.
+
+Timing includes forward, loss, backward, gradient communication (A), and the
+optimizer update. It excludes construction, input generation, and process startup.
+Each variant gets two warmup updates, then five paired measurements of three
+updates each, alternating which variant runs first. CUDA is synchronized at
+measurement boundaries; DP uses the slowest rank's duration. The median of the
+five baseline/parallel time ratios determines credit. Because each comparison
+processes the same number of rows, its throughput ratio equals its time speedup.
+The report includes every measured time, ratios, and rows/second. Parameter
+updates are also compared to the baseline after every measurement pair; skipping
+work cannot earn performance credit.
+
+Thresholds apply to the documented two-V100 environment. CPU preview and other
+GPU types report these criteria as `blocked`. A failed speedup criterion earns
+0/10 while retaining correctness credit. Check the JSON report and criterion log
+for details; if the allocation is unstable or an infrastructure error occurs,
+report it to course staff rather than modifying the benchmark.
 
 ### C. ZeRO and LoRA (25)
 
@@ -169,7 +217,7 @@ virtual environment/cache if home quota is tight. Submit from the repository:
 sbatch -A YOUR_GPU_ALLOCATION scripts/grade_bridges.sbatch
 ```
 
-The script requests exactly two `v100-32` GPUs in `GPU-shared` for at most 20 minutes.
+The script requests exactly two `v100-16` GPUs in `GPU-shared` for at most 20 minutes.
 Set `CORE_PYTHON=/absolute/path/to/venv/bin/python` when using an environment outside
 the repository. It prints the score and writes `artifacts/grade-JOBID.json` plus
 per-criterion logs. Request the allocation assigned to your course; do not copy
@@ -178,7 +226,7 @@ run `python grade.py --device cuda` directly. For live debugging, PSC also provi
 interactive sessions (use your own course allocation):
 
 ```bash
-interact -A YOUR_GPU_ALLOCATION -p GPU-shared --gres=gpu:v100-32:2 -n 5 -t 00:20:00
+interact -A YOUR_GPU_ALLOCATION -p GPU-shared --gres=gpu:v100-16:2 -n 5 -t 00:20:00
 # After the compute-node prompt appears:
 module load cuda/12.4.0
 cd /path/to/llmsys_hw5
@@ -194,7 +242,7 @@ Always exit the interactive shell when finished so the GPUs are released.
 `artifacts/grade.json` contains points, status, runtime, failure reason, logs,
 source hashes, package version, and GPU names. `blocked` means the required
 hardware/dependency is missing; it is **not a passing result or a zero earned after
-a completed full grade**. CPU preview can establish up to 87/100. Exit codes:
+a completed full grade**. CPU preview can establish up to 67/100. Exit codes:
 0 = every selected criterion passed; 1 = test failure/timeout; 2 = incomplete
 because one or more criteria were blocked. Results are written after each criterion.
 Use the listed log to see the assertion or traceback. An untouched starter should

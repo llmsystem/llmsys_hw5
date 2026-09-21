@@ -1,5 +1,43 @@
 # Validation results
 
+## A/B performance extension (September 21, 2026)
+
+The updated rubric preserves 100 total points: A has 15 correctness + 10
+performance points; B has 20 correctness + 10 performance points. C and D
+remain correctness-only at 25 and 20 points. The updated CPU reference passed
+67/100 with exactly 33 GPU-only points blocked. Three timing/rubric regression
+checks passed; an untouched DP starter received 0/25 and did not launch the
+performance workload after failing correctness.
+
+Calibration used job **46639493**, two V100-SXM2-16GB GPUs on Bridges node v029,
+account `cis260267p`. The initial paired measurements gave:
+
+| Benchmark | Median speedup | Required | Baseline step | Parallel step |
+|---|---:|---:|---:|---:|
+| Data parallel training | 1.808× | 1.50× | 125.94 ms | 69.75 ms |
+| Pipeline training | 1.468× | 1.10× | 124.37 ms | 84.86 ms |
+
+Step times are medians; speedups are medians of paired ratios. All five DP
+ratios were 1.799–1.835×; all five pipeline ratios were 1.464–1.476×. Parameter
+updates matched the supplied baselines after every measurement pair. Workloads,
+warmup, repetitions, and timing boundaries are specified in the student README.
+The submission script now defaults to two V100-16GB GPUs, matching calibration.
+
+The complete updated GPU grader earned **100/100 with no blocked criteria**.
+A second set of five paired measurements, run by the full grader, also passed
+both speedup thresholds. The allocation has been released.
+
+Three GPU negative controls were rejected for the intended reasons: deliberately
+slow but numerically correct DP and pipeline implementations failed the speedup
+thresholds, and omitted DP optimizer updates failed numerical comparison. A
+separate serialized-pipeline CPU control retained schedule/backward correctness
+credit but failed concurrent dispatch and was denied performance credit. Private
+reports are in the teacher branch at `instructor/validation/performance/`.
+
+The earlier 100/100 result below used the previous correctness-only rubric.
+
+## Earlier correctness validation
+
 Validated September 20, 2026 on Bridges-2, using exactly two NVIDIA Tesla
 V100-SXM2-32GB GPUs in one allocation. The final reference run, job 46632273
 on node v010 under course allocation `cis260267p`, earned **100/100 with no
@@ -49,7 +87,8 @@ The grader checks the DeepSpeed version/import before running these criteria.
 
 The default inference engine is the supplied Hugging Face/PyTorch implementation.
 Its tiny model/tokenizer are generated offline. No full epoch, gated model,
-accuracy threshold, speed threshold, or model download is required.
+accuracy threshold, or model download is required. C/D have no speed threshold;
+the new A/B benchmarks are described in the student README.
 
 ## Optional SGLang: not validated for grading
 

@@ -7,7 +7,6 @@ import hashlib
 import importlib.util
 import json
 import os
-from pathlib import Path
 import platform
 import shutil
 import signal
@@ -15,23 +14,26 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 EDITABLE = ("data_parallel.py", "pipeline.py", "finetune.py", "inference.py")
 # id, section, points, execution kind, test/function selectors
 RUBRIC = [
     ("partitions", "dp", 5, "unit", ["test_partitions"]),
-    ("gradients", "dp", 10, "distributed", ["dp_gradients"]),
-    ("updates", "dp", 10, "distributed", ["dp_updates"]),
-    ("schedule", "pipeline", 10, "unit", ["test_schedule"]),
+    ("gradients", "dp", 5, "distributed", ["dp_gradients"]),
+    ("updates", "dp", 5, "distributed", ["dp_updates"]),
+    ("dp_performance", "dp", 10, "performance", ["dp"]),
+    ("schedule", "pipeline", 5, "unit", ["test_schedule"]),
     (
         "forward",
         "pipeline",
-        10,
+        5,
         "unit",
         ["test_pipeline_forward", "test_pipeline_error"],
     ),
     ("backward", "pipeline", 10, "unit", ["test_pipeline_backward"]),
+    ("pipeline_performance", "pipeline", 10, "performance", ["pipeline"]),
     ("config", "finetune", 2, "unit", ["test_config"]),
     ("zero_runtime", "finetune", 3, "zero", ["zero_runtime"]),
     ("lora", "finetune", 5, "unit", ["test_lora_targets"]),
@@ -197,7 +199,7 @@ def main():
                 continue
             log = logs / (key + ".log")
             reason = ""
-            needs_cuda = kind == "zero" or (
+            needs_cuda = kind in ("zero", "performance") or (
                 accelerator == "cuda"
                 and key
                 in (
@@ -226,8 +228,13 @@ def main():
                 else:
                     try:
                         probe = subprocess.run(
-                            [serving, "-c", "from sglang.srt.entrypoints.engine import Engine"],
+                            [
+                                serving,
+                                "-c",
+                                "from sglang.srt.entrypoints.engine import Engine",
+                            ],
                             capture_output=True,
+                            check=False,
                             timeout=60,
                         )
                         if probe.returncode:
@@ -237,7 +244,24 @@ def main():
                             )
                     except subprocess.TimeoutExpired:
                         reason = "SGLang environment import timed out."
-            if reason:
+            prerequisite_failed = False
+            if kind == "performance":
+                if (
+                    accelerator == "cuda"
+                    and count >= 2
+                    and not all(
+                        "V100" in torch.cuda.get_device_name(i) for i in range(2)
+                    )
+                ):
+                    reason = "Speedup thresholds are calibrated for two V100 GPUs."
+                prerequisites = [r for r in results if r["section"] == section]
+                if any(r["status"] in ("failed", "timeout") for r in prerequisites):
+                    prerequisite_failed = True
+                    reason = "Performance credit requires passing this part's correctness checks."
+            if prerequisite_failed:
+                status, code, elapsed = "failed", None, 0
+                log.write_text(reason + "\n")
+            elif reason:
                 status, code, elapsed = "blocked", None, 0
                 log.write_text(reason + "\n")
             else:
@@ -246,7 +270,17 @@ def main():
                     if kind == "integration" and args.engine == "sglang"
                     else sys.executable
                 )
-                if kind in ("distributed", "zero"):
+                if kind == "performance":
+                    command = [
+                        python,
+                        "-m",
+                        "grading.performance",
+                        "--case",
+                        selectors[0],
+                        "--output",
+                        str(work / (key + ".json")),
+                    ]
+                elif kind in ("distributed", "zero"):
                     command = [
                         python,
                         "-m",
@@ -285,6 +319,12 @@ def main():
                 "log": str(log),
                 "reason": reason,
             }
+            if kind == "performance" and (work / (key + ".json")).is_file():
+                measurements = json.loads((work / (key + ".json")).read_text())
+                item["measurements"] = measurements
+                (logs / (key + ".json")).write_text(
+                    json.dumps(measurements, indent=2) + "\n"
+                )
             results.append(item)
             report.update(
                 earned=sum(r["earned"] for r in results),
