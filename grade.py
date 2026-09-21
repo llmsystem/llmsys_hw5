@@ -116,7 +116,7 @@ def main():
     if missing:
         parser.error("Missing submission files: " + ", ".join(missing))
     serving = (
-        str(Path(args.serving_python).expanduser().resolve())
+        os.path.abspath(os.path.expanduser(args.serving_python))
         if args.serving_python
         else sys.executable
     )
@@ -151,6 +151,34 @@ def main():
         PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
         PYTHONDONTWRITEBYTECODE="1",
     )
+    deepspeed_error = ""
+    if (
+        accelerator == "cuda"
+        and count >= 2
+        and (
+            args.section in ("all", "finetune")
+            or (args.section == "inference" and args.engine == "torch")
+        )
+        and importlib.util.find_spec("deepspeed") is not None
+    ):
+        preflight = logs / "environment.log"
+        status, _, _ = run(
+            [
+                sys.executable,
+                "-c",
+                "import deepspeed; assert deepspeed.__version__ == '0.16.9', 'Use the pinned DeepSpeed 0.16.9 grading environment'",
+            ],
+            ROOT,
+            env,
+            args.timeout,
+            preflight,
+        )
+        if status != "passed":
+            deepspeed_error = (
+                "DeepSpeed environment preflight failed; check setuptools and CUDA_HOME. "
+                + preflight.read_text(errors="replace")[-1200:]
+            )
+        report["deepspeed_preflight"] = status
     # Copy only editable student files into an instructor-owned disposable harness.
     with tempfile.TemporaryDirectory(prefix="hw56-grade-") as tmp:
         work = Path(tmp)
@@ -186,6 +214,10 @@ def main():
                 reason = "Needs a two-GPU allocation; CPU preview cannot establish this criterion."
             if kind == "zero" and importlib.util.find_spec("deepspeed") is None:
                 reason = "DeepSpeed is not installed in the grading environment."
+            if deepspeed_error and (
+                kind == "zero" or (kind == "integration" and args.engine == "torch")
+            ):
+                reason = deepspeed_error
             if kind == "integration" and args.engine == "sglang":
                 if accelerator != "cuda":
                     reason = "SGLang integration needs CUDA."

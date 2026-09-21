@@ -29,6 +29,9 @@ python grade.py --device cpu
 CPU-only machines may omit DeepSpeed by installing the other pinned packages
 from `requirements-merged.txt`. CUDA is needed only for the GPU grading commands.
 Use FP32 or FP16 on V100; this assignment deliberately excludes BF16.
+Keep DeepSpeed pinned to **0.16.9**: the grader checks this version before
+awarding its GPU points. The accumulation reference test exposed a regression
+in the initially tested newer versions; see `docs/VALIDATION.md`.
 For an identical Linux grading environment, install
 `docs/environments/core-lock.txt` instead of `requirements.txt`. The environment
 snapshots include Linux CUDA dependencies and are not intended for macOS.
@@ -161,6 +164,8 @@ hardware/backend configurations actually verified for this release.
 
 ## Bridges-2
 
+Load `module load cuda/12.4.0` before running the full grader on Bridges;
+DeepSpeed probes the toolkit even when no custom optimizer is used.
 Install dependencies before reserving GPUs, using your project storage for the
 virtual environment/cache if home quota is tight. Submit from the repository:
 

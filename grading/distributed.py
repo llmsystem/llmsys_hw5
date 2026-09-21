@@ -155,7 +155,13 @@ def worker(rank, port, case, accelerator):
                 for (name, p), (_, q) in zip(
                     net.named_parameters(), ref.named_parameters()
                 ):
-                    torch.testing.assert_close(p, q, rtol=2e-4, atol=2e-6, msg=name)
+                    torch.testing.assert_close(
+                        p,
+                        q,
+                        rtol=2e-4,
+                        atol=2e-6,
+                        msg=lambda message: f"{name}\n{message}",
+                    )
             assert engine.global_steps == 3
             assert any(
                 not torch.equal(p, initial[n])

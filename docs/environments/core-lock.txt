@@ -1,7 +1,7 @@
 annotated-types==0.8.0
 certifi==2026.7.22
 charset-normalizer==3.5.1
-deepspeed==0.18.1
+deepspeed==0.16.9
 einops==0.8.2
 filelock==4.0.1
 fsspec==2026.9.0
@@ -50,3 +50,4 @@ triton==3.2.0
 typing-extensions==4.16.0
 typing-inspection==0.4.4
 urllib3==2.8.0
+setuptools==80.9.0

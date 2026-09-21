@@ -7,6 +7,7 @@
 #SBATCH --time=00:20:00
 #SBATCH --output=hw56-grade-%j.log
 set -euo pipefail
+module load cuda/12.4.0
 # Submit from the repository: sbatch -A YOUR_GPU_ALLOCATION scripts/grade_bridges.sbatch
 cd "${SLURM_SUBMIT_DIR}"
 CORE_PYTHON="${CORE_PYTHON:-${PWD}/.venv/bin/python}"
