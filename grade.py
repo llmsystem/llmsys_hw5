@@ -226,7 +226,7 @@ def main():
                 else:
                     try:
                         probe = subprocess.run(
-                            [serving, "-c", "import sglang"],
+                            [serving, "-c", "from sglang.srt.entrypoints.engine import Engine"],
                             capture_output=True,
                             timeout=60,
                         )

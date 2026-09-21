@@ -157,7 +157,9 @@ warmup, and divide by total measured seconds. Always shut down its owned engine,
 including on exceptions. No minimum tokens/second is graded.
 
 The default real-inference fixture uses the supplied local Hugging Face/PyTorch
-engine. SGLang has a separate dependency profile (`requirements-serving.txt`) and
+engine. SGLang is experimental and currently fails dependency loading in the tested
+environment; it is not required for full credit. It has a separate dependency
+profile (`requirements-serving.txt`) and
 an explicit `--engine sglang --serving-python /path/to/serving-env/bin/python`
 option. There is no silent backend fallback. See `docs/VALIDATION.md` for the
 hardware/backend configurations actually verified for this release.
@@ -178,7 +180,20 @@ Set `CORE_PYTHON=/absolute/path/to/venv/bin/python` when using an environment ou
 the repository. It prints the score and writes `artifacts/grade-JOBID.json` plus
 per-criterion logs. Request the allocation assigned to your course; do not copy
 another student's account name. For an existing interactive two-GPU allocation,
-run `python grade.py --device cuda` directly.
+run `python grade.py --device cuda` directly. For live debugging, PSC also provides
+interactive sessions (use your own course allocation):
+
+```bash
+interact -A YOUR_GPU_ALLOCATION -p GPU-shared --gres=gpu:v100-32:2 -n 5 -t 00:20:00
+# After the compute-node prompt appears:
+module load cuda/12.4.0
+cd /path/to/llmsys_hw5
+/path/to/venv/bin/python grade.py --device cuda
+exit
+```
+
+See the [PSC interactive-session instructions](https://www.psc.edu/resources/bridges-2/user-guide/#interactive-sessions).
+Always exit the interactive shell when finished so the GPUs are released.
 
 ## Reading results and instructor use
 

@@ -1,67 +1,67 @@
-# Validation status
+# Validation results
 
-As of September 20, 2026, the implementation and local checks are complete.
-**GPU validation is still pending.** Do not treat this as a GPU-validated release.
+Validated September 20, 2026 on Bridges-2, using exactly two NVIDIA Tesla
+V100-SXM2-32GB GPUs in one allocation. The final reference run, job 46632273
+on node v010 under course allocation `cis260267p`, earned **100/100 with no
+blocked criteria**. The allocation has been released. No newer GPU was used.
+The 15 scored subprocesses totaled **81.8 seconds**; this excludes environment
+preflight, interpreter startup outside those subprocesses, filesystem overhead,
+and queue time. Reserve several minutes per submission, rather than treating
+that sum as an end-to-end runtime guarantee.
 
-## Completed checks
+## What passed
 
-The private reference implementation passed all 87 points available in CPU mode
-on macOS with Python 3.12, PyTorch 2.6.0, and Transformers 4.51.1. The remaining
-13 points require a real two-GPU DeepSpeed engine and were reported as `blocked`,
-not passed. An earlier CPU run also passed with Torch 2.9.1/Transformers 4.51.3.
-The untouched starter earned zero implementation points.
+- Real two-rank NCCL gradient averaging and three optimizer updates, compared
+  with a serial reference.
+- One-, two-, and three-stage pipelines, including cross-device transfers,
+  uneven microbatches, forward order, gradients, three updates, and worker errors.
+- Actual two-rank DeepSpeed ZeRO-2, LoRA targeting/freezing, three accumulated
+  optimizer updates against a serial reference, and adapter save/load.
+- Batching and complete JSONL export, real offline tiny-Llama generation through
+  the supplied PyTorch engine, and deterministic measurement/cleanup checks.
 
-CPU coverage includes two-process Gloo gradient averaging and three parameter
-updates against a serial reference; one-, two-, and three-stage pipelines;
-uneven microbatches, repeated calls, input/parameter gradients and updates;
-LoRA targeting and adapter serialization; complete inference export; real
-locally generated Llama inference; and controlled throughput accounting/cleanup.
+The untouched starter earned 0/100 in the initial GPU run. After repairing the
+validation environment, the final run separately reconfirmed 0/25 for finetuning
+and 0/20 for inference, with no blocked points. Nine deliberate defects were
+caught in CPU and initial GPU audits; the final corrected GPU environment also
+caught an omitted DeepSpeed engine step. These checks test obvious false
+positives, not resistance to malicious code.
 
-Nine deliberately broken implementations were rejected by their corresponding
-checks: empty partitions, empty schedules, zero gradients, omitted all-reduce,
-omitted optimizer step, detached pipeline transfers, no-op LoRA targeting,
-dropped inference records, and fabricated throughput. The private teacher branch
-contains the audit script and detailed reports. The submission packager was also
-checked, including its refusal to package a teacher branch.
+The pinned CPU reference earned 87/100; the remaining 13 points were correctly
+blocked because they require a real two-GPU DeepSpeed engine. Packaging was
+checked, including refusal to package the private teacher branch.
 
-## Queued Bridges-2 validation
+Private reference reports and per-criterion logs are preserved in the local
+teacher branch under `instructor/validation/`. Student source and graders are
+separate from these reference artifacts.
 
-Job **46622548** is queued under the authorized course allocation `cis260267p`
-in `GPU-shared`, requesting **exactly two V100-32GB GPUs** on one node. The maximum
-allocation is 20 minutes, with a 10-minute minimum backfill window. No other GPU
-job was submitted. Slurm's estimate at 21:46 EDT was approximately 01:02 EDT on
-September 21; this is a scheduler estimate, not a guaranteed start time.
+## Validated environment
 
-The job runs these checks in sequence and releases the allocation afterward:
+Python 3.11, PyTorch 2.6.0+cu124, DeepSpeed **0.16.9**, Transformers 4.51.1,
+NumPy 1.26.4, setuptools 80.9.0, and Bridges module `cuda/12.4.0`.
+The exact Linux core package snapshot is `environments/core-lock.txt`.
 
-1. Full teacher grading with NCCL, real cross-device pipelines, DeepSpeed ZeRO-2,
-   and real PyTorch-backed inference.
-2. A separate real SGLang integration attempt, with no silent backend fallback.
-3. Full grading of the untouched starter.
-4. Ten negative checks, including an omitted DeepSpeed engine step.
+Keep the DeepSpeed pin: versions 0.18.1 and 0.17.6 failed this assignment's
+accumulated-update reference check. Version 0.16.9 passed the same check and
+then the complete GPU grader. We kept the numerical comparison intact;
+students should not compensate for an incompatible optimizer dependency.
+The grader checks the DeepSpeed version/import before running these criteria.
 
-The full reference target is 100/100 and the untouched-starter target is 0/100.
-Those targets are **not recorded GPU results yet**. No per-submission GPU runtime
-has been measured. Instructor review of the generated reports is still required
-before declaring the assignment ready for official GPU grading.
+The default inference engine is the supplied Hugging Face/PyTorch implementation.
+Its tiny model/tokenizer are generated offline. No full epoch, gated model,
+accuracy threshold, speed threshold, or model download is required.
 
-## Environments and inference backend
+## Optional SGLang: not validated for grading
 
-The intended Linux profile is Python 3.11, Torch 2.6.0+cu124, DeepSpeed 0.18.1,
-Transformers 4.51.1, and NumPy 1.26.4. Both Torch and DeepSpeed import successfully
-on the Bridges login environment. The exact installed package snapshots are in
-`environments/core-lock.txt` and `environments/serving-lock.txt`.
+The optional SGLang 0.4.6.post5 experiment failed before engine startup:
+`compressed_tensors` imported `transformers.masking_utils`, which was absent
+from the tested Transformers 4.51.1 environment. This is a dependency failure,
+not evidence that students' code failed or that V100 hardware is unsupported.
+The snapshot in `environments/serving-lock.txt` records that failed experimental
+environment; **do not use it as an approved grading environment**.
 
-The default graded inference backend is the supplied Hugging Face/PyTorch engine,
-using an offline deterministic tiny Llama fixture. This makes batching, request
-coverage, correctness, and measurement independent of SGLang hardware support.
-
-**The optional SGLang/V100 combination is unverified.** Its isolated environment
-uses SGLang 0.4.6.post5, native PyTorch attention, PyTorch sampling, FP16, no CUDA
-graphs, no custom all-reduce, and a small bounded KV cache. The queued test will
-establish whether that path actually works on V100. Do not make it a required
-student dependency until a successful real-engine result is recorded. SGLang
-failure must not be silently replaced by a passing result from a different engine.
-
-No full training epoch, gated model, accuracy threshold, performance threshold,
-or model download is part of this validation.
+Use the default `--engine torch` for all 100 points. SGLang is experimental,
+not required for student installation or full credit. Its preflight imports the
+actual engine entry point to classify this dependency error as `blocked`.
+There is no silent fallback to another engine. A repaired SGLang environment
+must pass a new real-engine validation before it is used for official grading.
