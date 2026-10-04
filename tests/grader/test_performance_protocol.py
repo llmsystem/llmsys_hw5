@@ -32,9 +32,9 @@ def test_slow_implementation_fails_but_preserves_measurements(tmp_path):
     assert report["parallel_seconds_per_step"] == [2] * 5
 
 
-def test_rubric_keeps_cd_correctness_and_total():
-    assert sum(row[2] for row in RUBRIC) == 100
+def test_rubric_keeps_c_correctness_and_total():
+    assert sum(row[2] for row in RUBRIC) == 80
     performance = [row for row in RUBRIC if row[3] == "performance"]
     assert [(row[1], row[2]) for row in performance] == [("dp", 10), ("pipeline", 10)]
     assert sum(row[2] for row in RUBRIC if row[1] == "finetune") == 25
-    assert sum(row[2] for row in RUBRIC if row[1] == "inference") == 20
+    assert {row[1] for row in RUBRIC} == {"dp", "pipeline", "finetune"}

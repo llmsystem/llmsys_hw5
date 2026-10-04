@@ -1,1 +1,1 @@
-"""Merged HW5+HW6: distributed training and inference."""
+"""Merged HW5+HW6: distributed training and fine-tuning."""

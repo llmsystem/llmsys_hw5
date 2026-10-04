@@ -1,5 +1,27 @@
 # Validation results
 
+## Part D removed (October 4, 2026)
+
+Part D (inference, 20 points) has been removed. The rubric now totals 80 raw
+points: A has 15 correctness + 10 performance points, B has 20 correctness + 10
+performance points, and C is correctness-only at 25 points. The CPU reference
+passes 47/80 with the same 33 GPU-only points blocked (20 A/B performance, 13
+DeepSpeed ZeRO); an untouched starter earns 0.
+
+On two V100-SXM2-32GB GPUs joined by NVLink, the reference earned 80/80 in three
+consecutive full runs (DP 1.83×, pipeline 1.51×), the starter earned 0/80, and
+six GPU-only defects were each rejected by the intended criterion. Speedups depend
+on which two GPUs GPU-shared assigns: on PCIe-only pairs (`NODE` in
+`nvidia-smi topo -m`) DP measured 1.475–1.531× and pipeline 1.42×. The DP threshold
+is therefore 1.45× instead of 1.50×; the pipeline threshold stays 1.10×. Pipeline
+speedup also requires doing cross-device transfers inside the submitted callables
+(transfers in the calling thread measured 1.06×), which the README now states.
+The distributed checks now meet through a private file instead of a probed TCP
+port, which another job on a shared node had taken during validation.
+
+All results below, both GPU runs and CPU previews (67/100, 87/100), were
+recorded with the earlier 100-point rubric, which included Part D.
+
 ## A/B performance extension (September 21, 2026)
 
 The updated rubric preserves 100 total points: A has 15 correctness + 10
@@ -55,12 +77,10 @@ that sum as an end-to-end runtime guarantee.
   uneven microbatches, forward order, gradients, three updates, and worker errors.
 - Actual two-rank DeepSpeed ZeRO-2, LoRA targeting/freezing, three accumulated
   optimizer updates against a serial reference, and adapter save/load.
-- Batching and complete JSONL export, real offline tiny-Llama generation through
-  the supplied PyTorch engine, and deterministic measurement/cleanup checks.
 
 The untouched starter earned 0/100 in the initial GPU run. After repairing the
-validation environment, the final run separately reconfirmed 0/25 for finetuning
-and 0/20 for inference, with no blocked points. Nine deliberate defects were
+validation environment, the final run separately reconfirmed 0/25 for finetuning,
+with no blocked points. Nine deliberate defects were
 caught in CPU and initial GPU audits; the final corrected GPU environment also
 caught an omitted DeepSpeed engine step. These checks test obvious false
 positives, not resistance to malicious code.
@@ -78,6 +98,8 @@ separate from these reference artifacts.
 Python 3.11, PyTorch 2.6.0+cu124, DeepSpeed **0.16.9**, Transformers 4.51.1,
 NumPy 1.26.4, setuptools 80.9.0, and Bridges module `cuda/12.4.0`.
 The exact Linux core package snapshot is `environments/core-lock.txt`.
+Since Part D's removal, no graded code imports Transformers; it stays pinned so
+the snapshot remains the one that passed GPU validation.
 
 Keep the DeepSpeed pin: versions 0.18.1 and 0.17.6 failed this assignment's
 accumulated-update reference check. Version 0.16.9 passed the same check and
@@ -85,22 +107,5 @@ then the complete GPU grader. We kept the numerical comparison intact;
 students should not compensate for an incompatible optimizer dependency.
 The grader checks the DeepSpeed version/import before running these criteria.
 
-The default inference engine is the supplied Hugging Face/PyTorch implementation.
-Its tiny model/tokenizer are generated offline. No full epoch, gated model,
-accuracy threshold, or model download is required. C/D have no speed threshold;
-the new A/B benchmarks are described in the student README.
-
-## Optional SGLang: not validated for grading
-
-The optional SGLang 0.4.6.post5 experiment failed before engine startup:
-`compressed_tensors` imported `transformers.masking_utils`, which was absent
-from the tested Transformers 4.51.1 environment. This is a dependency failure,
-not evidence that students' code failed or that V100 hardware is unsupported.
-The snapshot in `environments/serving-lock.txt` records that failed experimental
-environment; **do not use it as an approved grading environment**.
-
-Use the default `--engine torch` for all 100 points. SGLang is experimental,
-not required for student installation or full credit. Its preflight imports the
-actual engine entry point to classify this dependency error as `blocked`.
-There is no silent fallback to another engine. A repaired SGLang environment
-must pass a new real-engine validation before it is used for official grading.
+No full epoch, gated model, accuracy threshold, or model download is required.
+C has no speed threshold; the new A/B benchmarks are described in the student README.

@@ -5,6 +5,7 @@ import copy
 import datetime
 import os
 import socket
+import tempfile
 import torch
 from torch import nn
 import torch.distributed as dist
@@ -22,7 +23,7 @@ def reference_adapters(net):
     return net
 
 
-def worker(rank, port, case, accelerator):
+def worker(rank, port, store, case, accelerator):
     os.environ.update(
         MASTER_ADDR="127.0.0.1",
         MASTER_PORT=str(port),
@@ -38,6 +39,7 @@ def worker(rank, port, case, accelerator):
         torch.cuda.set_device(device)
     dist.init_process_group(
         "nccl" if accelerator == "cuda" else "gloo",
+        init_method="file://" + store,
         rank=rank,
         world_size=2,
         timeout=datetime.timedelta(seconds=90),
@@ -182,10 +184,14 @@ def main():
     p.add_argument("--case", required=True)
     p.add_argument("--accelerator", choices=["cpu", "cuda"], default="cpu")
     a = p.parse_args()
+    # MASTER_PORT is only exported for DeepSpeed; the process group meets through a
+    # private file, because another job on a shared node can take a probed TCP port.
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
-    mp.spawn(worker, args=(port, a.case, a.accelerator), nprocs=2, join=True)
+    with tempfile.TemporaryDirectory(prefix="hw56-pg-") as tmp:
+        store = os.path.join(tmp, "store")
+        mp.spawn(worker, args=(port, store, a.case, a.accelerator), nprocs=2, join=True)
     print("PASS", a.case, flush=True)
 
 

@@ -23,7 +23,9 @@ class Pipe(nn.Module):
     per microbatch, not the number of microbatches. Stages return tensors.
     The supplied workers handle thread autograd mode and CUDA completion.
     Use submit(stage, callable) for the whole wave before taking any results
-    with receive(stage). Keep tensors attached to autograd through transfers.
+    with receive(stage). Keep tensors attached to autograd through transfers,
+    and do every cross-device transfer inside a submitted callable, not in the
+    calling thread; otherwise the stages serialize and lose the speedup.
     Return outputs in original example order on the last device.
     """
 
