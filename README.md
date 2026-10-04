@@ -1,7 +1,7 @@
 # HW5+6: distributed training and fine-tuning
 
 Implement three small systems components: data parallel training, pipeline
-parallelism, and DeepSpeed ZeRO with LoRA. **80 points.**
+parallelism, and DeepSpeed ZeRO with LoRA. **100 points.**
 The components are separate experiments; you do not need to combine DP, PP,
 and ZeRO into a single runtime. Parts A and B include short, automatically
 measured training-speedup benchmarks. Part C is graded for correctness
@@ -15,8 +15,8 @@ The previous handout is preserved in `legacy/HW5_README.md`.
 
 Use Python 3.11 on Linux for the complete grading environment. The full grader
 uses **two V100 GPUs on one node**; CPU preview works on Linux/macOS and runs
-the correctness checks worth 47 points. The remaining 33 points require two
-GPUs: 20 for A/B performance and 13 for the real DeepSpeed ZeRO engine.
+the correctness checks worth 58 points. The remaining 42 points require two
+GPUs: 26 for A/B performance and 16 for the real DeepSpeed ZeRO engine.
 All fixtures are generated locally: no Hugging Face account, model download,
 dataset download, or previous homework solution is needed.
 
@@ -64,19 +64,20 @@ checkpoint, screenshots, logs, or the entire repository.
 
 | Part | Criterion | Points |
 |---|---|---:|
-| A: data parallelism | Complete balanced seeded partition | 5 |
-| | Live averaged gradients matching a serial global batch | 5 |
-| | Three correct optimizer updates | 5 |
-| | Two-GPU training speedup | 10 |
+| A: data parallelism | Complete balanced seeded partition | 7 |
+| | Live averaged gradients matching a serial global batch | 7 |
+| | Three correct optimizer updates | 7 |
+| | Two-GPU training speedup | 14 |
 | B: pipeline parallelism | Complete diagonal microbatch schedule | 5 |
-| | Concurrent wave dispatch, outputs, ordering, device, worker errors | 5 |
-| | Input/parameter gradients and three optimizer updates | 10 |
-| | Pipelined training speedup | 10 |
-| C: ZeRO + LoRA | Static batch/precision config; live ZeRO-2 engine | 2 + 3 |
-| | Target selection, frozen base, device/dtype preservation | 5 |
-| | Three real accumulated ZeRO optimizer updates | 10 |
-| | Adapter-only save/reload and rejection of incompatible files | 5 |
-| **Total** | | **80** |
+| | Concurrent wave dispatch, outputs, ordering, device, worker errors | 6 |
+| | Input/parameter gradients and three optimizer updates | 12 |
+| | Pipelined training speedup | 12 |
+| C: ZeRO + LoRA | Static batch/precision configuration dictionary | 2 |
+| | Live two-rank ZeRO-2 engine built from `build_config` (GPU) | 4 |
+| | Target selection, frozen base, device/dtype preservation | 6 |
+| | Three real accumulated ZeRO optimizer updates | 12 |
+| | Adapter-only save/reload and rejection of incompatible files | 6 |
+| **Total** | | **100** |
 
 Criteria are all-or-nothing at the listed granularity. The grader isolates major
 components with supplied fixtures where possible: an incorrect schedule does not
@@ -87,7 +88,7 @@ Performance credit requires passing all correctness criteria within the same
 part, plus the benchmark’s numerical and speedup checks. A performance failure
 does not remove correctness points or affect C.
 
-### A. Data parallelism (25)
+### A. Data parallelism (35)
 
 `partition_indices` must shuffle using a local seeded RNG, then return all indices
 exactly once in disjoint partitions. Each rank receives `size // world_size`
@@ -105,7 +106,7 @@ so a simple rank mean equals the serial global-batch gradient. This is not a
 contract for averaging unequal token counts or independently exhausting unequal
 partition lengths. The supplied training fixtures give every rank equal steps.
 
-### B. Pipeline parallelism (30)
+### B. Pipeline parallelism (35)
 
 `clock_cycles(M, N)` yields `M + N - 1` nonempty waves (zero waves for `M=0`).
 At clock `t`, include exactly the valid `(microbatch, stage)` pairs whose sum is
@@ -126,7 +127,7 @@ Input batches are nonempty. The harness places stages on their devices, and the
 constructor registers them. Worker management and exception propagation are supplied. The numerical fixtures
 use deterministic batch-independent layers (no training-mode BatchNorm/dropout).
 
-### A/B performance grading (10 points in each part)
+### A/B performance grading (14 points in A, 12 points in B)
 
 Run the same student grader inside a **two-V100 allocation**:
 
@@ -163,11 +164,11 @@ work cannot earn performance credit.
 
 Thresholds apply to the documented two-V100 environment. CPU preview and other
 GPU types report these criteria as `blocked`. A failed speedup criterion earns
-0/10 while retaining correctness credit. Check the JSON report and criterion log
+no performance points while retaining correctness credit. Check the JSON report and criterion log
 for details; if the allocation is unstable or an infrastructure error occurs,
 report it to course staff rather than modifying the benchmark.
 
-### C. ZeRO and LoRA (25)
+### C. ZeRO and LoRA (30)
 
 `build_config` specifies ZeRO stage 2, no offload, and
 `global_batch = world_size * micro_batch * accumulation`. Disable gradient clipping
@@ -226,7 +227,7 @@ Always exit the interactive shell when finished so the GPUs are released.
 `artifacts/grade.json` contains points, status, runtime, failure reason, logs,
 source hashes, package version, and GPU names. `blocked` means the required
 hardware/dependency is missing; it is **not a passing result or a zero earned after
-a completed full grade**. CPU preview can establish up to 47/80. Exit codes:
+a completed full grade**. CPU preview can establish up to 58/100. Exit codes:
 0 = every selected criterion passed; 1 = test failure/timeout; 2 = incomplete
 because one or more criteria were blocked. Results are written after each criterion.
 Use the listed log to see the assertion or traceback. An untouched starter should

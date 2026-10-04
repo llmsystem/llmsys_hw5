@@ -20,25 +20,25 @@ ROOT = Path(__file__).resolve().parent
 EDITABLE = ("data_parallel.py", "pipeline.py", "finetune.py")
 # id, section, points, execution kind, test/function selectors
 RUBRIC = [
-    ("partitions", "dp", 5, "unit", ["test_partitions"]),
-    ("gradients", "dp", 5, "distributed", ["dp_gradients"]),
-    ("updates", "dp", 5, "distributed", ["dp_updates"]),
-    ("dp_performance", "dp", 10, "performance", ["dp"]),
+    ("partitions", "dp", 7, "unit", ["test_partitions"]),
+    ("gradients", "dp", 7, "distributed", ["dp_gradients"]),
+    ("updates", "dp", 7, "distributed", ["dp_updates"]),
+    ("dp_performance", "dp", 14, "performance", ["dp"]),
     ("schedule", "pipeline", 5, "unit", ["test_schedule"]),
     (
         "forward",
         "pipeline",
-        5,
+        6,
         "unit",
         ["test_pipeline_forward", "test_pipeline_error"],
     ),
-    ("backward", "pipeline", 10, "unit", ["test_pipeline_backward"]),
-    ("pipeline_performance", "pipeline", 10, "performance", ["pipeline"]),
+    ("backward", "pipeline", 12, "unit", ["test_pipeline_backward"]),
+    ("pipeline_performance", "pipeline", 12, "performance", ["pipeline"]),
     ("config", "finetune", 2, "unit", ["test_config"]),
-    ("zero_runtime", "finetune", 3, "zero", ["zero_runtime"]),
-    ("lora", "finetune", 5, "unit", ["test_lora_targets"]),
-    ("zero_updates", "finetune", 10, "zero", ["zero_updates"]),
-    ("adapter", "finetune", 5, "unit", ["test_adapter_persistence"]),
+    ("zero_runtime", "finetune", 4, "zero", ["zero_runtime"]),
+    ("lora", "finetune", 6, "unit", ["test_lora_targets"]),
+    ("zero_updates", "finetune", 12, "zero", ["zero_updates"]),
+    ("adapter", "finetune", 6, "unit", ["test_adapter_persistence"]),
 ]
 
 

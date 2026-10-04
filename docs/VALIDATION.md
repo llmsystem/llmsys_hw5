@@ -2,14 +2,15 @@
 
 ## Part D removed (October 4, 2026)
 
-Part D (inference, 20 points) has been removed. The rubric now totals 80 raw
-points: A has 15 correctness + 10 performance points, B has 20 correctness + 10
-performance points, and C is correctness-only at 25 points. The CPU reference
-passes 47/80 with the same 33 GPU-only points blocked (20 A/B performance, 13
-DeepSpeed ZeRO); an untouched starter earns 0.
+Part D (inference, 20 points) has been removed, and the remaining criteria were
+rescaled to 100 points: A has 21 correctness + 14 performance points, B has 23
+correctness + 12 performance points, and C is correctness-only at 30 points. The
+CPU reference passes 58/100 with 42 GPU-only points blocked (26 A/B performance,
+16 DeepSpeed ZeRO); an untouched starter earns 0.
 
-On two V100-SXM2-32GB GPUs joined by NVLink, the reference earned 80/80 in three
-consecutive full runs (DP 1.83×, pipeline 1.51×), the starter earned 0/80, and
+On two V100-SXM2-32GB GPUs joined by NVLink, the reference passed every criterion
+in three consecutive full runs (DP 1.83×, pipeline 1.51×; recorded as 80/80
+before the rescaling), the starter earned 0, and
 six GPU-only defects were each rejected by the intended criterion. Speedups depend
 on which two GPUs GPU-shared assigns: on PCIe-only pairs (`NODE` in
 `nvidia-smi topo -m`) DP measured 1.475–1.531× and pipeline 1.42×. The DP threshold

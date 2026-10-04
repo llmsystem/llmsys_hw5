@@ -1,4 +1,4 @@
-"""Part B: microbatch pipeline parallelism (30 points)."""
+"""Part B: microbatch pipeline parallelism (35 points)."""
 
 import torch
 from torch import nn
