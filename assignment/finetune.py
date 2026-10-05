@@ -1,4 +1,4 @@
-"""Part C: DeepSpeed ZeRO and LoRA integration (25 points)."""
+"""Part C: DeepSpeed ZeRO and LoRA integration (30 points)."""
 
 import torch
 from torch import nn

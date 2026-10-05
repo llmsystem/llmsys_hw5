@@ -1,5 +1,4 @@
 import copy
-import json
 import random
 from pathlib import Path
 import pytest
@@ -9,7 +8,6 @@ from assignment import (
     data_parallel as dp,
     pipeline as pp,
     finetune as ft,
-    inference as inf,
 )
 from assignment.runtime import LoRALinear
 from grading.fixtures import model
@@ -247,98 +245,3 @@ def test_adapter_persistence(tmp_path):
         with pytest.raises(ValueError):
             ft.load_adapter(fresh, path)
         assert all(torch.equal(p, before[n]) for n, p in fresh.named_parameters())
-
-
-class FakeEngine:
-    def __init__(self):
-        self.calls = []
-        self.closed = False
-        self.syncs = 0
-
-    def generate(self, prompts, params):
-        self.calls.append((prompts, params))
-        assert params["temperature"] == 0
-        return [{"text": p + " ☃", "output_ids": [len(p), 3]} for p in prompts]
-
-    def synchronize(self):
-        self.syncs += 1
-
-    def shutdown(self):
-        self.closed = True
-
-
-def requests():
-    return [
-        {"id": str(i), "prompt": p}
-        for i, p in enumerate(["red", "blue", "red", "green", "你好"])
-    ]
-
-
-def test_inference_batching():
-    for size in [1, 2, 10]:
-        engine = FakeEngine()
-        rs = requests()
-        records = inf.generate_records(engine, rs, size, 7)
-        assert [r["id"] for r in records] == [r["id"] for r in rs]
-        assert [r["prompt"] for r in records] == [r["prompt"] for r in rs]
-        assert [r["output"] for r in records] == [r["prompt"] + " ☃" for r in rs]
-        assert [r["output_ids"] for r in records] == [[len(r["prompt"]), 3] for r in rs]
-        assert len(engine.calls) == (len(rs) + size - 1) // size
-        assert all(c[1]["max_new_tokens"] == 7 for c in engine.calls)
-        assert not engine.closed
-    assert inf.generate_records(FakeEngine(), [], 3) == []
-    for size, tokens in [(0, 8), (1, 0)]:
-        with pytest.raises(ValueError):
-            inf.generate_records(FakeEngine(), requests(), size, tokens)
-    with pytest.raises(ValueError):
-        inf.generate_records(FakeEngine(), [requests()[0]] * 2, 2)
-
-    class Missing(FakeEngine):
-        def generate(self, *args):
-            return []
-
-    with pytest.raises(ValueError):
-        inf.generate_records(Missing(), requests(), 2)
-
-
-def test_inference_jsonl(tmp_path):
-    rows = [
-        {"id": str(i), "prompt": "a\nb", "output": "你好", "output_ids": [1, 2]}
-        for i in range(23)
-    ]
-    path = tmp_path / "outputs.jsonl"
-    inf.write_jsonl(rows, path)
-    assert [
-        json.loads(s) for s in path.read_text(encoding="utf-8").splitlines()
-    ] == rows
-
-
-def test_inference_benchmark(monkeypatch):
-    # Oracle batching avoids deducting batching bugs again in the timing criterion.
-    def records(engine, rs, bs, max_new_tokens):
-        outputs = engine.generate(
-            [r["prompt"] for r in rs],
-            {"temperature": 0, "max_new_tokens": max_new_tokens},
-        )
-        return [{"output_ids": o["output_ids"]} for o in outputs]
-
-    monkeypatch.setattr(inf, "generate_records", records)
-    ticks = iter([1.0, 3.0, 10.0, 13.0, 20.0, 25.0])
-    monkeypatch.setattr(inf.time, "perf_counter", lambda: next(ticks))
-    e = FakeEngine()
-    stats = inf.benchmark(e, requests(), 2, repeats=3)
-    assert (
-        stats["output_tokens"] == 30
-        and stats["seconds"] == 10
-        and stats["tokens_per_second"] == 3
-    )
-    assert len(e.calls) == 4 and e.syncs == 6 and e.closed
-
-    class Broken(FakeEngine):
-        def generate(self, *a):
-            raise RuntimeError("generation failed")
-
-    e = Broken()
-    with pytest.raises(RuntimeError):
-        inf.benchmark(e, requests(), 2)
-    assert e.closed

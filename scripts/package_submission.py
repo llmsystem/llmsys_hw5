@@ -1,4 +1,4 @@
-"""Package only the four editable modules; never include grading logs or history."""
+"""Package only the three editable modules; never include grading logs or history."""
 
 from datetime import datetime
 from pathlib import Path
@@ -11,7 +11,7 @@ branch = subprocess.run(
 )
 if "teacher" in branch.stdout.lower():
     raise SystemExit("Refusing to create a student submission from a teacher branch.")
-names = ["data_parallel.py", "pipeline.py", "finetune.py", "inference.py"]
+names = ["data_parallel.py", "pipeline.py", "finetune.py"]
 for name in names:
     if not (root / "assignment" / name).is_file():
         raise SystemExit("Missing " + name)

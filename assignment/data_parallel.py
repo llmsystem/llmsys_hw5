@@ -1,4 +1,4 @@
-"""Part A: manual data parallelism (25 points)."""
+"""Part A: manual data parallelism (35 points)."""
 
 import random
 import torch.distributed as dist

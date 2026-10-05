@@ -1,10 +1,10 @@
-# HW5+6: distributed training and inference
+# HW5+6: distributed training and fine-tuning
 
-Implement four small systems components: data parallel training, pipeline
-parallelism, DeepSpeed ZeRO with LoRA, and batched inference. **100 points.**
+Implement three small systems components: data parallel training, pipeline
+parallelism, and DeepSpeed ZeRO with LoRA. **100 points.**
 The components are separate experiments; you do not need to combine DP, PP,
 and ZeRO into a single runtime. Parts A and B include short, automatically
-measured training-speedup benchmarks. Parts C and D are graded for correctness
+measured training-speedup benchmarks. Part C is graded for correctness
 only. No full training epoch, accuracy threshold, or submitted figure is required.
 
 The active assignment is in `assignment/`. The old `data_parallel/`, `pipeline/`,
@@ -15,10 +15,10 @@ The previous handout is preserved in `legacy/HW5_README.md`.
 
 Use Python 3.11 on Linux for the complete grading environment. The full grader
 uses **two V100 GPUs on one node**; CPU preview works on Linux/macOS and runs
-the correctness checks worth 67 points. The remaining 33 points require two
-GPUs: 20 for A/B performance and 13 for the real DeepSpeed ZeRO engine.
-The tiny model and tokenizer are generated locally: no Hugging Face account,
-model downloads, dataset download, or previous homework solution is needed.
+the correctness checks worth 58 points. The remaining 42 points require two
+GPUs: 26 for A/B performance and 16 for the real DeepSpeed ZeRO engine.
+All fixtures are generated locally: no Hugging Face account, model download,
+dataset download, or previous homework solution is needed.
 
 ```bash
 python3.11 -m venv .venv
@@ -35,14 +35,13 @@ Use the pinned DeepSpeed version **0.16.9**; other versions are not supported
 by this assignment’s grader.
 For an identical Linux grading environment, install
 `docs/environments/core-lock.txt` instead of `requirements.txt`. The environment
-snapshots include Linux CUDA dependencies and are not intended for macOS.
+snapshot includes Linux CUDA dependencies and is not intended for macOS.
 
-Implement the `BEGIN_STUDENT` / `END_STUDENT` regions in these four files:
+Implement the `BEGIN_STUDENT` / `END_STUDENT` regions in these three files:
 
 - `assignment/data_parallel.py`
 - `assignment/pipeline.py`
 - `assignment/finetune.py`
-- `assignment/inference.py`
 
 Keep the public function signatures and supplied scaffolding intact. Ordinary
 Python and PyTorch operations are allowed. Do not replace the manual DP exercise
@@ -57,7 +56,7 @@ python grade.py --device cuda --output artifacts/my-grade.json
 bash scripts/create_submission_zip.sh
 ```
 
-Submit the ZIP printed by the last command. It contains only the four editable
+Submit the ZIP printed by the last command. It contains only the three editable
 Python modules under `assignment/`. Do not submit a virtual environment, model
 checkpoint, screenshots, logs, or the entire repository.
 
@@ -65,33 +64,31 @@ checkpoint, screenshots, logs, or the entire repository.
 
 | Part | Criterion | Points |
 |---|---|---:|
-| A: data parallelism | Complete balanced seeded partition | 5 |
-| | Live averaged gradients matching a serial global batch | 5 |
-| | Three correct optimizer updates | 5 |
-| | Two-GPU training speedup | 10 |
+| A: data parallelism | Complete balanced seeded partition | 7 |
+| | Live averaged gradients matching a serial global batch | 7 |
+| | Three correct optimizer updates | 7 |
+| | Two-GPU training speedup | 14 |
 | B: pipeline parallelism | Complete diagonal microbatch schedule | 5 |
-| | Concurrent wave dispatch, outputs, ordering, device, worker errors | 5 |
-| | Input/parameter gradients and three optimizer updates | 10 |
-| | Pipelined training speedup | 10 |
-| C: ZeRO + LoRA | Static batch/precision config; live ZeRO-2 engine | 2 + 3 |
-| | Target selection, frozen base, device/dtype preservation | 5 |
-| | Three real accumulated ZeRO optimizer updates | 10 |
-| | Adapter-only save/reload and rejection of incompatible files | 5 |
-| D: inference | Batched generation, IDs, order, complete export | 7 + 3 |
-| | Real tiny-model inference matching direct reference calls | 5 |
-| | Warmup, synchronization, actual-token throughput, cleanup | 5 |
+| | Concurrent wave dispatch, outputs, ordering, device, worker errors | 6 |
+| | Input/parameter gradients and three optimizer updates | 12 |
+| | Pipelined training speedup | 12 |
+| C: ZeRO + LoRA | Static batch/precision configuration dictionary | 2 |
+| | Live two-rank ZeRO-2 engine built from `build_config` (GPU) | 4 |
+| | Target selection, frozen base, device/dtype preservation | 6 |
+| | Three real accumulated ZeRO optimizer updates | 12 |
+| | Adapter-only save/reload and rejection of incompatible files | 6 |
 | **Total** | | **100** |
 
 Criteria are all-or-nothing at the listed granularity. The grader isolates major
 components with supplied fixtures where possible: an incorrect schedule does not
 automatically erase forward/backward credit; broken LoRA targeting does not erase
 configuration or training-step credit. A broken pipeline forward naturally also
-prevents its backward criterion. Real inference uses your batching function.
+prevents its backward criterion.
 Performance credit requires passing all correctness criteria within the same
 part, plus the benchmark’s numerical and speedup checks. A performance failure
-does not remove correctness points or affect C/D.
+does not remove correctness points or affect C.
 
-### A. Data parallelism (25)
+### A. Data parallelism (35)
 
 `partition_indices` must shuffle using a local seeded RNG, then return all indices
 exactly once in disjoint partitions. Each rank receives `size // world_size`
@@ -109,7 +106,7 @@ so a simple rank mean equals the serial global-batch gradient. This is not a
 contract for averaging unequal token counts or independently exhausting unequal
 partition lengths. The supplied training fixtures give every rank equal steps.
 
-### B. Pipeline parallelism (30)
+### B. Pipeline parallelism (35)
 
 `clock_cycles(M, N)` yields `M + N - 1` nonempty waves (zero waves for `M=0`).
 At clock `t`, include exactly the valid `(microbatch, stage)` pairs whose sum is
@@ -119,13 +116,18 @@ stage counts.
 `Pipe.forward` splits along batch dimension, runs the stages on their assigned
 devices, and concatenates outputs in the original order on the last device.
 Use the supplied worker API: **submit every operation in a wave before receiving
-its results**. Preserve autograd across device transfers. Support a smaller final
+its results**. Preserve autograd across device transfers, and perform every
+cross-device transfer inside a callable you submit (for example, a stage can move
+its output to the next stage's device), not in the calling thread. Transfers done
+in the calling thread still give correct results, but they serialize the stages:
+in our two-V100 validation that reached only about 1.06×, below the performance
+threshold, while transfers inside the submitted callables reached 1.42–1.52×. Support a smaller final
 microbatch, split sizes larger than the batch, repeated calls, and `no_grad()`.
 Input batches are nonempty. The harness places stages on their devices, and the
 constructor registers them. Worker management and exception propagation are supplied. The numerical fixtures
 use deterministic batch-independent layers (no training-mode BatchNorm/dropout).
 
-### A/B performance grading (10 points in each part)
+### A/B performance grading (14 points in A, 12 points in B)
 
 Run the same student grader inside a **two-V100 allocation**:
 
@@ -138,7 +140,7 @@ The grader runs your implementation against a supplied baseline. It generates
 inputs and models locally; you do not need a dataset, model download, plots,
 or a separate performance submission. Keep the supplied benchmark unchanged.
 
-- **A:** at least **1.50×** training speedup over a single V100 processing the
+- **A:** at least **1.40×** training speedup over a single V100 processing the
   same global batch. Two ranks each process half the rows and average gradients.
 - **B:** at least **1.10×** training speedup over ordinary, non-pipelined model
   parallelism on the same two V100s. Both variants use the same layer placement
@@ -162,11 +164,11 @@ work cannot earn performance credit.
 
 Thresholds apply to the documented two-V100 environment. CPU preview and other
 GPU types report these criteria as `blocked`. A failed speedup criterion earns
-0/10 while retaining correctness credit. Check the JSON report and criterion log
+no performance points while retaining correctness credit. Check the JSON report and criterion log
 for details; if the allocation is unstable or an infrastructure error occurs,
 report it to course staff rather than modifying the benchmark.
 
-### C. ZeRO and LoRA (25)
+### C. ZeRO and LoRA (30)
 
 `build_config` specifies ZeRO stage 2, no offload, and
 `global_batch = world_size * micro_batch * accumulation`. Disable gradient clipping
@@ -188,23 +190,6 @@ The base checkpoint must already match; adapter files intentionally do not inclu
 base weights or optimizer state. These APIs receive an ordinary model with complete
 parameters, not ZeRO-3 shards. Saving, loading, and outputs are verified independently
 of your targeting function.
-
-### D. Inference (20)
-
-The supplied engine exposes `generate(prompts, sampling_params)`, `synchronize()`,
-and `shutdown()`. `generate_records` validates unique request IDs, batches prompts,
-uses deterministic decoding, and preserves every ID and prompt in order. Duplicate
-prompt text is allowed. Check the engine's output count; never silently drop an
-incomplete final batch. Output records contain `id`, `prompt`, `output`, and
-`output_ids`. `write_jsonl` writes every record, including Unicode and newlines.
-
-`benchmark` runs one untimed warmup, then the requested measured passes. Synchronize
-before and after each measured pass. Count actual generated token IDs, excluding
-warmup, and divide by total measured seconds. Always shut down its owned engine,
-including on exceptions. No minimum tokens/second is graded.
-
-The real-inference tests use the supplied local Hugging Face/PyTorch engine.
-Use the default engine for this assignment; you do not need to install SGLang.
 
 ## Bridges-2
 
@@ -242,7 +227,7 @@ Always exit the interactive shell when finished so the GPUs are released.
 `artifacts/grade.json` contains points, status, runtime, failure reason, logs,
 source hashes, package version, and GPU names. `blocked` means the required
 hardware/dependency is missing; it is **not a passing result or a zero earned after
-a completed full grade**. CPU preview can establish up to 67/100. Exit codes:
+a completed full grade**. CPU preview can establish up to 58/100. Exit codes:
 0 = every selected criterion passed; 1 = test failure/timeout; 2 = incomplete
 because one or more criteria were blocked. Results are written after each criterion.
 Use the listed log to see the assertion or traceback. An untouched starter should
