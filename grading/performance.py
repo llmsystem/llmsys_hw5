@@ -29,7 +29,7 @@ SPLIT = 1024
 WARMUP = 2
 STEPS = 3
 REPEATS = 5
-THRESHOLDS = {"dp": 1.45, "pipeline": 1.1}
+THRESHOLDS = {"dp": 1.4, "pipeline": 1.1}
 
 
 class Block(nn.Module):

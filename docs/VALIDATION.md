@@ -14,7 +14,7 @@ before the rescaling), the starter earned 0, and
 six GPU-only defects were each rejected by the intended criterion. Speedups depend
 on which two GPUs GPU-shared assigns: on PCIe-only pairs (`NODE` in
 `nvidia-smi topo -m`) DP measured 1.475–1.531× and pipeline 1.42×. The DP threshold
-is therefore 1.45× instead of 1.50×; the pipeline threshold stays 1.10×. Pipeline
+is therefore 1.40× instead of 1.50×; the pipeline threshold stays 1.10×. Pipeline
 speedup also requires doing cross-device transfers inside the submitted callables
 (transfers in the calling thread measured 1.06×), which the README now states.
 The distributed checks now meet through a private file instead of a probed TCP

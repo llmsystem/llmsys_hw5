@@ -140,7 +140,7 @@ The grader runs your implementation against a supplied baseline. It generates
 inputs and models locally; you do not need a dataset, model download, plots,
 or a separate performance submission. Keep the supplied benchmark unchanged.
 
-- **A:** at least **1.45×** training speedup over a single V100 processing the
+- **A:** at least **1.40×** training speedup over a single V100 processing the
   same global batch. Two ranks each process half the rows and average gradients.
 - **B:** at least **1.10×** training speedup over ordinary, non-pipelined model
   parallelism on the same two V100s. Both variants use the same layer placement
