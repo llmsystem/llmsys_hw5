@@ -1,4 +1,10 @@
-__pycache__
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv*/
+artifacts/
+dist/
 slurm*
-workdir
+hw56-grade-*.log
+workdir/
 tests/model*.pth
