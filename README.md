@@ -1,4 +1,4 @@
-# HW5+6: distributed training and fine-tuning
+# HW5: distributed training and fine-tuning
 
 Implement three small systems components: data parallel training, pipeline
 parallelism, and DeepSpeed ZeRO with LoRA. **100 points.**
