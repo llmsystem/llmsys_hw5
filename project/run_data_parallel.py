@@ -167,6 +167,8 @@ def run_dp(
         # To compute the throughput, you need to sum up the tokens_per_sec across all the devices based on epochs
         print(f'Rank {rank} training time: avg:{np.mean(total_time)}, std:{np.std(total_time)}, \
         tokens_per_second: avg: {np.mean(total_tokens_per_sec)}, std:{np.std(total_tokens_per_sec)}')
+    # Cleanup
+    dist.destroy_process_group()
 
 
 if __name__ == '__main__':
