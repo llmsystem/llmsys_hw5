@@ -9,7 +9,6 @@ only. No full training epoch, accuracy threshold, or submitted figure is require
 
 The active assignment is in `assignment/`. The old `data_parallel/`, `pipeline/`,
 `project/`, and benchmark scripts are historical HW5 material and are not graded.
-The previous handout is preserved in `legacy/HW5_README.md`.
 
 ## Setup and quick start
 
@@ -202,7 +201,7 @@ virtual environment/cache if home quota is tight. Submit from the repository:
 sbatch -A YOUR_GPU_ALLOCATION scripts/grade_bridges.sbatch
 ```
 
-The script requests exactly two `v100-16` GPUs in `GPU-shared` for at most 20 minutes.
+The script requests exactly two `v100-16` GPUs in `GPU-shared` for at most 1 hour.
 Set `CORE_PYTHON=/absolute/path/to/venv/bin/python` when using an environment outside
 the repository. It prints the score and writes `artifacts/grade-JOBID.json` plus
 per-criterion logs. Request the allocation assigned to your course; do not copy
@@ -211,7 +210,7 @@ run `python grade.py --device cuda` directly. For live debugging, PSC also provi
 interactive sessions (use your own course allocation):
 
 ```bash
-interact -A YOUR_GPU_ALLOCATION -p GPU-shared --gres=gpu:v100-16:2 -n 5 -t 00:20:00
+interact -A YOUR_GPU_ALLOCATION -p GPU-shared --gres=gpu:v100-16:2 -n 5 -t 01:00:00
 # After the compute-node prompt appears:
 module load cuda/12.4.0
 cd /path/to/llmsys_hw5

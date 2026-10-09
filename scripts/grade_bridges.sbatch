@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:v100-16:2
 #SBATCH --cpus-per-task=5
 #SBATCH --mem=32G
-#SBATCH --time=00:20:00
+#SBATCH --time=01:00:00
 #SBATCH --output=hw56-grade-%j.log
 set -euo pipefail
 module load cuda/12.4.0
